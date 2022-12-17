@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dropdown</title>
+   </head>
+<body>
+
+    <form name="Item_1" action ="/" method="POST">
+         <select name = "fuel_types" >
+            <option value={{default}} selected>{{default}}</option>
+            {% for fuel in fuel_types %}
+            <option value = "{{fuel}}">{{fuel}}</option>
+            {% endfor %}
+
+         </select>
+        <p><input type = 'submit' value = 'Submit'/></p>
+    </form>
+    {% include "map.html" %}
+</body>
+</html>
