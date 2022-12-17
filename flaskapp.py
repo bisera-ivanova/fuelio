@@ -20,6 +20,12 @@ app = Flask(__name__)
 
 @app.route("/", methods=['GET', 'POST'])
 def index():
+    """
+    Function that displays the index ("/") page of the flask app
+    :return:
+    rendered_template: response
+    renders the html on the webpage
+    """
     selected_fuel = "Please select a fuel:"
     datasource_df = pd.read_csv("GasStationData.csv")
     pump_color = 'blue'
@@ -41,10 +47,21 @@ def index():
 
 
 def render_map(datasource_df, pump_color, selected_fuels):
+    """
+    Function that renders the map for the webpage based on the passed arguments
+    :param datasource_df: pandas dataframe
+    a dataframe created from the GasStationData.csv
+    :param pump_color:list
+    A list of available colors used for the marker color
+    :param selected_fuels:string
+    The fuel that corresponds to the option selected from the dropdown menu
+    :return:
+    Saves the generated map with all of its parameters in the map.html file
+    """
     coordinates_list = regex_nav_links(datasource_df)
     starting_coordinates = (42.6954333, 23.338155)
     filtered_df = datasource_df.replace("None", "Не е налично")
-    folium_map = folium.Map(location=starting_coordinates, zoom_start=12, height="75%", width="60%", top="10%",
+    folium_map = folium.Map(location=starting_coordinates, zoom_start=12, height="75%", width="60%", top="5%",
                             left="20%")
     for idx, item in enumerate(coordinates_list):
         popup_html = generate_popup_html(filtered_df, idx, selected_fuels)
@@ -56,6 +73,15 @@ def render_map(datasource_df, pump_color, selected_fuels):
 
 
 def index_post_request(dataframe):
+    """
+    Function that outlines the operations carried out by the post request:
+        -Creating a filtered dataframe with the records, based on the user's fuel
+        selection
+        -Sets a cookie for each dropdown menu option
+        -Returns a rendering of the map based on the user selection
+    :param dataframe: pandas dataframe
+    :return:
+    """
     fuel_colors = ['cadetblue', 'orange', 'green', 'darkred', 'purple']
     selected_fuel = request.form["fuel_types"]
     selected_fuels = [FUEL_REFERENCE[selected_fuel]]
@@ -76,6 +102,18 @@ def index_post_request(dataframe):
 
 
 def generate_popup_html(dataframe, station_index, fuels=AVAILABLE_FUELS):
+    """
+    Method that generates the html markup for each gas station infobox
+    :param dataframe: pandas dataframe
+    a dataframe containing all the records used in generating the html
+    :param station_index: int
+    the index at which the record exists in the dataframe
+    :param fuels: list
+    A list of all available fuel types
+    :return:
+    final_string: str
+    The parsable html generated for each infobox
+    """
     final_string = f"""
                 <h3 style="font-size:16px; text-align:center">{dataframe["Gas Station"][station_index]}<p>
                 <p>{dataframe["Address"][station_index]}<p>
@@ -95,6 +133,15 @@ def generate_popup_html(dataframe, station_index, fuels=AVAILABLE_FUELS):
 
 
 def regex_nav_links(dataframe):
+    """
+    A function that takes the coordinates (longitude and latitude)
+    from the Navigation links
+    :param dataframe: pandas dataframe
+    A dataframe from which the links are pulled
+    :return:
+    latitudes_longitudes: list
+    a list of lists that contains the latitude and longitude for each gas station
+    """
     lat_long_regex = re.compile(r'[-]?[\d]+[.][\d]*')
     latitudes_longitudes = []
     for link in dataframe["Navigation links"]:

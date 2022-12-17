@@ -3,19 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <title>Dropdown</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
    </head>
 <body>
+    <div class="header">
+    <h1 class="heading"> Fuelo App </h1>
+    <h4 class="short_desc"> The easiest way to find the best fuel price!</h4>
+    <p class="full_desc">Fuelo is an interactive map that displays all gas stations that offer a particular type of
+    fuel. To begin, select your desired fuel and the map will display all available stations.</p>
+    </div>
 
-    <form name="Item_1" action ="/" method="POST">
-         <select name = "fuel_types" >
-            <option value={{default}} selected>{{default}}</option>
-            {% for fuel in fuel_types %}
-            <option value = "{{fuel}}">{{fuel}}</option>
-            {% endfor %}
+    <div class="dropdown">
+        <form  class="dropdown_form" name="Item_1" action ="/" method="POST">
+            <select class="dropdown_selector" name = "fuel_types" >
+                <option class="dropdown_selected" value={{default}} selected>{{default}}</option>
+                {% for fuel in fuel_types %}
+                <option class="dropdown_options" value = "{{fuel}}">{{fuel}}</option>
+                {% endfor %}
 
-         </select>
-        <p><input type = 'submit' value = 'Submit'/></p>
-    </form>
+            </select>
+            <p><input class="dropdown_submit" type = 'submit' value = 'Submit'/></p>
+        </form>
+    </div>
     {% include "map.html" %}
 </body>
 </html>
