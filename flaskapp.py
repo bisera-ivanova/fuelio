@@ -1,190 +1,106 @@
-from flask import Flask, render_template, request, make_response
 import pandas as pd
 import folium
 import re
-from folium import plugins
+
+from flask import Flask, render_template, request, make_response
+
+
+FUEL_TYPES = ('Бензин', 'Дизел', 'Електричество', 'Метан', 'Пропан Бутан')
+AVAILABLE_FUELS = (['Бензин A95', 'Бензин A100', 'Бензин A95+', 'Бензин A98'],
+                   ['Дизел', 'Дизел премиум'],
+                   ['Електричество'],
+                   ['Метан'],
+                   ['Пропан Бутан']
+                   )
+FUEL_REFERENCE = dict(zip(FUEL_TYPES, AVAILABLE_FUELS))
+
 
 app = Flask(__name__)
 
 
 @app.route("/", methods=['GET', 'POST'])
 def index():
-    fuel_types = ['Бензин', 'Дизел', 'Електричество', 'Метан', 'Пропан Бутан']
-    available_fuels = [['Бензин A95', 'Бензин A100', 'Бензин A95+', 'Бензин A98'],
-                       ['Дизел', 'Дизел премиум'],
-                       ['Електричество'],
-                       ['Метан'],
-                       ['Пропан Бутан']
-                       ]
-
-    fuel_reference = dict(zip(fuel_types, available_fuels))
     selected_fuel = "Please select a fuel:"
     datasource_df = pd.read_csv("GasStationData.csv")
+    pump_color = 'blue'
 
-    def regex_nav_links():
-        lat_long_regex = re.compile(r'[-]?[\d]+[.][\d]*')
-        lat_long_list = []
-        for link in datasource_df["Navigation links"]:
-            lat_and_long = lat_long_regex.findall(link)
-            lat_long_list.append(lat_and_long)
-        return lat_long_list
+    if request.method == "GET":
+
+        fuel_selected = request.cookies.get("fuel")
+        if fuel_selected:
+            selected_fuel = fuel_selected
+
+        # map rendering
+        render_map(datasource_df, pump_color, AVAILABLE_FUELS)
+
+        return render_template("index.html", fuel_types=FUEL_TYPES, default=selected_fuel)
 
     if request.method == 'POST':
-        selected_fuel = request.form["fuel_types"]
+        rendered_template = index_post_request(datasource_df)
+        return rendered_template
 
-        # temporary dataframe building
-        temp_df = pd.DataFrame()
-        for key, value in fuel_reference.items():
-            if selected_fuel == key:
-                temp_df = temp_df.append(datasource_df.loc[datasource_df[value[0]] != "None"], ignore_index=True)
 
-        # map rendering
-        coordinates_list = regex_nav_links()
-        starting_coordinates = (42.6954333, 23.338155)
-        folium_map = folium.Map(location=starting_coordinates, zoom_start=12, height="75%", width="60%", top="10%",
-                                left="20%")
+def render_map(datasource_df, pump_color, selected_fuels):
+    coordinates_list = regex_nav_links(datasource_df)
+    starting_coordinates = (42.6954333, 23.338155)
+    filtered_df = datasource_df.replace("None", "Не е налично")
+    folium_map = folium.Map(location=starting_coordinates, zoom_start=12, height="75%", width="60%", top="10%",
+                            left="20%")
+    for idx, item in enumerate(coordinates_list):
+        popup_html = generate_popup_html(filtered_df, idx, selected_fuels)
+        popup = folium.Popup(popup_html, min_width=300, max_width=1200)
+        folium.Marker(location=item,
+                      popup=popup,
+                      icon=folium.Icon(color=pump_color, icon='gas-pump', prefix='fa')).add_to(folium_map)
+    folium_map.save('templates/map.html')
 
-        for idx, item in enumerate(coordinates_list):
-            if selected_fuel == "Бензин":
-                popup_html = f"""
-                    <h3 style="font-size:16px; text-align:center">{datasource_df["Gas Station"][idx]}<p>
-                    <p>{datasource_df["Address"][idx]}<p>
-                    <ol style="list-style-type:none; text-align:left; font-size:13px;">
-                        <li>{temp_df["Бензин A100"].name}: {temp_df["Бензин A100"][idx]}</li>
-                        <li>{temp_df["Бензин A95"].name}: {temp_df["Бензин A95"][idx]}</li>
-                        <li>{temp_df["Бензин A95+"].name}: {temp_df["Бензин A95+"][idx]}</li>
-                        <li>{temp_df["Бензин A98"].name}: {temp_df["Бензин A98"][idx]}</li>
-                    </ol>
-                    <form target="_blank" action="{datasource_df["Navigation links"][idx]}">
-                        <input type="submit" value="Навигация" />
-                    </form>
 
-        """
+def index_post_request(dataframe):
+    fuel_colors = ['cadetblue', 'orange', 'green', 'darkred', 'purple']
+    selected_fuel = request.form["fuel_types"]
+    selected_fuels = [FUEL_REFERENCE[selected_fuel]]
+    fuel_color_index = FUEL_TYPES.index(selected_fuel)
+    pump_color = fuel_colors[fuel_color_index]
+    # temporary dataframe building
+    temp_df = pd.DataFrame()
+    for key, value in FUEL_REFERENCE.items():
+        if selected_fuel == key:
+            temp_df = temp_df.append(dataframe.loc[dataframe[value[0]] != "None"], ignore_index=True)
 
-                popup = folium.Popup(popup_html, min_width=300, max_width=1200)
+    # map rendering
+    render_map(temp_df, pump_color, selected_fuels)
 
-                folium.Marker(location=item,
-                              popup=popup,
-                              icon=folium.Icon(color='#28568f', icon='gas-pump', prefix='fa')).add_to(folium_map)
+    response = make_response(render_template("index.html", fuel_types=FUEL_TYPES, default=selected_fuel))
+    response.set_cookie("fuel", value=request.form["fuel_types"])
+    return response
 
-            elif selected_fuel == "Дизел":
-                popup_html = f"""
-                                    <h3 style="font-size:16px; text-align:center">{datasource_df["Gas Station"][idx]}<p>
-                                    <p>{datasource_df["Address"][idx]}<p>
-                                    <ol style="list-style-type:none; text-align:left; font-size:13px;">
-                                         <li>{temp_df["Дизел"].name}: {temp_df["Дизел"][idx]}</li>
-                                        <li>{temp_df["Дизел премиум"].name}: {temp_df["Дизел премиум"][idx]}</li>
-                                    </ol>
-                                    <form target="_blank" action="{datasource_df["Navigation links"][idx]}">
-                                        <input type="submit" value="Навигация" />
-                                    </form>
 
-                        """
+def generate_popup_html(dataframe, station_index, fuels=AVAILABLE_FUELS):
+    final_string = f"""
+                <h3 style="font-size:16px; text-align:center">{dataframe["Gas Station"][station_index]}<p>
+                <p>{dataframe["Address"][station_index]}<p>
+                <ol style="list-style-type:none; text-align:left; font-size:13px;">
+                """
+    for fuel_type in fuels:
+        for fuel_name in fuel_type:
+            final_string += f"""<li>{dataframe[fuel_name].name}: {dataframe[fuel_name][station_index]}</li>"""
 
-                popup = folium.Popup(popup_html, min_width=300, max_width=1200)
-
-                folium.Marker(location=item,
-                              popup=popup,
-                              icon=folium.Icon(color='#451f6e', icon='gas-pump', prefix='fa')).add_to(folium_map)
-            elif selected_fuel == "Електричество":
-                popup_html = f"""
-                                    <h3 style="font-size:16px; text-align:center">{datasource_df["Gas Station"][idx]}<p>
-                                    <p>{datasource_df["Address"][idx]}<p>
-                                    <ol style="list-style-type:none; text-align:left; font-size:13px;">
-                                        <li>{temp_df["Електричество"].name}: {temp_df["Електричество"][idx]}</li>
-                                    </ol>
-                                    <form target="_blank" action="{datasource_df["Navigation links"][idx]}">
-                                        <input type="submit" value="Навигация" />
-                                    </form>
-
-                        """
-
-                popup = folium.Popup(popup_html, min_width=300, max_width=1200)
-
-                folium.Marker(location=item,
-                              popup=popup,
-                              icon=folium.Icon(color='#4efc03', icon='gas-pump', prefix='fa')).add_to(folium_map)
-            elif selected_fuel == "Метан":
-                popup_html = f"""
-                                    <h3 style="font-size:16px; text-align:center">{datasource_df["Gas Station"][idx]}<p>
-                                    <p>{datasource_df["Address"][idx]}<p>
-                                    <ol style="list-style-type:none; text-align:left; font-size:13px;">
-                                        <li>{temp_df["Метан"].name}: {temp_df["Метан"][idx]}</li>
-                                    </ol>
-                                    <form target="_blank" action="{datasource_df["Navigation links"][idx]}">
-                                        <input type="submit" value="Навигация" />
-                                    </form>
-
-                        """
-
-                popup = folium.Popup(popup_html, min_width=300, max_width=1200)
-
-                folium.Marker(location=item,
-                              popup=popup,
-                              icon=folium.Icon(color='#1f4a0c', icon='gas-pump', prefix='fa')).add_to(folium_map)
-            elif selected_fuel == "Пропан Бутан":
-                popup_html = f"""
-                                    <h3 style="font-size:16px; text-align:center">{datasource_df["Gas Station"][idx]}<p>
-                                    <p>{datasource_df["Address"][idx]}<p>
-                                    <ol style="list-style-type:none; text-align:left; font-size:13px;">
-                                        <li>{temp_df["Пропан Бутан"].name}: {temp_df["Пропан Бутан"][idx]}</li>
-                                    </ol>
-                                    <form target="_blank" action="{datasource_df["Navigation links"][idx]}">
-                                        <input type="submit" value="Навигация" />
-                                    </form>
-
-                        """
-
-                popup = folium.Popup(popup_html, min_width=300, max_width=1200)
-
-                folium.Marker(location=item,
-                              popup=popup,
-                              icon=folium.Icon(color='#690d25', icon='gas-pump', prefix='fa')).add_to(folium_map)
-
-        folium_map.save('templates/map.html')
-
-        response = make_response(render_template("index.html", fuel_types=fuel_types, default=selected_fuel))
-
-        response.set_cookie("fuel", value=request.form["fuel_types"])
-        return response
-
-    if request.cookies.get("fuel"):
-        selected_fuel = request.cookies.get("fuel")
-
-        # map rendering
-        coordinates_list = regex_nav_links()
-        starting_coordinates = (42.6954333, 23.338155)
-        folium_map = folium.Map(location=starting_coordinates, zoom_start=12, height="75%", width="60%", top="10%",
-                                left="20%")
-        filtered_df = datasource_df.replace("None", "Не е налично")
-        for idx, item in enumerate(coordinates_list):
-            popup_html = f"""
-            <h3 style="font-size:16px; text-align:center">{datasource_df["Gas Station"][idx]}<p>
-            <p>{datasource_df["Address"][idx]}<p>
-            <ol style="list-style-type:none; text-align:left; font-size:13px;">
-                <li>{filtered_df["Бензин A100"].name}: {filtered_df["Бензин A100"][idx]}</li>
-                <li>{filtered_df["Бензин A95"].name}: {filtered_df["Бензин A95"][idx]}</li>
-                <li>{filtered_df["Бензин A95+"].name}: {filtered_df["Бензин A95+"][idx]}</li>
-                <li>{filtered_df["Бензин A98"].name}: {filtered_df["Бензин A98"][idx]}</li>
-                <li>{filtered_df["Дизел"].name}: {filtered_df["Дизел"][idx]}</li>
-                <li>{filtered_df["Дизел премиум"].name}: {datasource_df["Дизел премиум"][idx]}</li>
-                <li>{filtered_df["Електричество"].name}: {filtered_df["Електричество"][idx]}</li>
-                <li>{filtered_df["Метан"].name}: {filtered_df["Метан"][idx]}</li>
-                <li>{filtered_df["Пропан Бутан"].name}: {filtered_df["Пропан Бутан"][idx]}</li>
-            </ol>
-            <form target="_blank" action="{datasource_df["Navigation links"][idx]}">
+    final_string += f"""
+                </ol>
+                <form target="_blank" action="{dataframe["Navigation links"][station_index]}">
                 <input type="submit" value="Навигация" />
-            </form>
-            
-"""
-            popup = folium.Popup(popup_html, min_width=300, max_width=1200)
+                </form>
+                """
+    return final_string
 
-            folium.Marker(location=item,
-                          popup=popup,
-                          icon=folium.Icon(color='blue', icon='gas-pump', prefix='fa')).add_to(folium_map)
-        folium_map.save('templates/map.html')
 
-        return render_template("index.html", fuel_types=fuel_types, default=selected_fuel)
+def regex_nav_links(dataframe):
+    lat_long_regex = re.compile(r'[-]?[\d]+[.][\d]*')
+    latitudes_longitudes = []
+    for link in dataframe["Navigation links"]:
+        lat_and_long = lat_long_regex.findall(link)
+        latitudes_longitudes.append(lat_and_long)
+    return latitudes_longitudes
 
 
 if __name__ == "__main__":
