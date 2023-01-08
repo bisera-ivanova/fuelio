@@ -83,7 +83,7 @@ class PricesNavScraper:
             final_dict: dictionary
             used for the creation of the final dataframe
         """
-        print(fuels_and_prices)
+
         main_fuel_types = self.get_fuel_types()  # list of the main fuel types
         fuel_store_names_reference = dict(
             zip(main_fuel_types, STORE_FUEL_NAMES))  # key - main fuel type, value - store fuel name
@@ -167,9 +167,13 @@ class PricesNavScraper:
             fuel_names.append(fuel_name)
         return fuel_names
 
+    def dataframe_append(self, dataframe):
+        final_dataframe = dataframe
+        final_dataframe.to_csv("GasStationData.csv", index=False)
+
 
 if __name__ == '__main__':
     price = PricesNavScraper()
     price.reader_loop()
-    final_dataframe = price.scrape_links()
-    final_dataframe.to_csv("GasStationData.csv", index=False)
+    price.dataframe_append(price.scrape_links())
+

@@ -6,7 +6,8 @@
 
 html {
   box-sizing: border-box;
-  font-size: 62.5%; }
+  font-size: 62.5%;
+  background-color: #fffff0}
 
 body {
   font-family: "Lato", sans-serif;
