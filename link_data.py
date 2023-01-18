@@ -1,8 +1,7 @@
 import pandas as pd
 import requests as re
 from bs4 import BeautifulSoup as bs4
-import time
-from random import randint
+
 from scraper import Scraper
 
 STORE_FUEL_NAMES = [['Racing 100', 'ECTO 100', 'MaxxMotion 100', '100', 'V-Power Racing', '100 eXXtra Force',
@@ -37,7 +36,6 @@ class PricesNavScraper:
 
     Methods
     ----------
-    reader_loop
     get_fuel_types
     get_fuel_types_vs_prices
     link_scraping
@@ -45,21 +43,7 @@ class PricesNavScraper:
     """
 
     def __init__(self):
-        self.data_source_col_names = ["Gas Station", "Address", "Link"]
-        self.data_source_df = pd.read_csv('GasStationData.csv', skiprows=1, names=self.data_source_col_names)
-        self.station_links = []
-
-    def reader_loop(self):
-        """
-        Loops through the "Link" column of the data_source_df dataframe and inserts the links in the
-        self.local_storage
-        :return:
-        self.local_storage: list
-            links, which are to be used to scrape data
-        """
-
-        for item in self.data_source_df["Link"]:
-            self.station_links.append(item)
+        self.data_source_df = pd.read_csv('GasStationData.csv')
 
     def get_fuel_types(self):
         """
@@ -113,9 +97,8 @@ class PricesNavScraper:
         navigation_links = []
         prices = pd.DataFrame(columns=self.get_fuel_types())
 
-        for link in self.station_links:
+        for link in self.data_source_df["Link"]:
             response = re.get(link)
-            time.sleep(randint(1, 7))
             html = bs4(response.text, "html.parser")
             navigation_link = html.find("a", {"class": "btn btn-secondary btn-large"}).get("href")
             fuel_table = html.find("tbody")
@@ -135,8 +118,6 @@ class PricesNavScraper:
         frames = [self.data_source_df, prices]
         self.data_source_df = pd.concat(frames, axis=1)
         self.data_source_df["Navigation links"] = navigation_links
-
-        return self.data_source_df
 
     def get_fuel_prices(self, fuel_price_getter):
         """
@@ -167,13 +148,12 @@ class PricesNavScraper:
             fuel_names.append(fuel_name)
         return fuel_names
 
-    def dataframe_append(self, dataframe):
-        final_dataframe = dataframe
+    def convert_dataframe_to_csv(self):
+        final_dataframe = self.data_source_df
         final_dataframe.to_csv("GasStationData.csv", index=False)
 
 
 if __name__ == '__main__':
     price = PricesNavScraper()
-    price.reader_loop()
-    price.dataframe_append(price.scrape_links())
-
+    price.scrape_links()
+    price.convert_dataframe_to_csv()
