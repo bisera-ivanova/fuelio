@@ -58,7 +58,7 @@ typed-ast==1.5.4
 typing-extensions==4.4.0
 urllib3==1.26.12
 watchdog==2.2.0
-Werkzeug==2.2.2
+Werkzeug==2.3.8
 wheel==0.37.1
 wrapt==1.14.1
 XlsxWriter==3.0.3
