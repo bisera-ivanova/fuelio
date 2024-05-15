@@ -64,3 +64,4 @@ wrapt
 XlsxWriter
 yarg
 zipp
+
